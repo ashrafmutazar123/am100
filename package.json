@@ -1,7 +1,7 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "am100-hydroponic-dashboard",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -83,5 +83,5 @@
     "typescript-eslint": "^8.0.1",
     "vite": "^5.4.1"
   },
-  "homepage": "https://notmohdsaif.github.io/am100"
+  "homepage": "https://ashrafmutazar123.github.io/am100"
 }
