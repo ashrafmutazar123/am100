@@ -4,71 +4,48 @@ import ECMonitorCard from '@/components/ECMonitorCard';
 import WaterLevelCard from '@/components/WaterLevelCard';
 
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Download } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { RefreshCw, Download, Wifi, WifiOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useRealtimeSensorData } from '@/hooks/useRealtimeSensorData';
-import { useSensorConfig } from '@/hooks/useSensorConfig';
+import { useMqttSensorData } from '@/hooks/useMQTTSensorData';
 
 const Dashboard = () => {
-  const { ecMin, ecMax, tankMax, loading: configLoading, save: saveConfig } = useSensorConfig();
-  const [tankHeightMm, setTankHeightMm] = useState(320);
+  const [tankHeightMm, setTankHeightMm] = useState(200);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [ecThreshold, setECThreshold] = useState({ min: 1.2, max: 2.0 });
+  const [ecThreshold, setECThreshold] = useState({ min: 1.2, max: 4.0 });
   const { toast } = useToast();
   
-  // Hydrate local state from config
-  useEffect(() => {
-    setECThreshold({ min: ecMin, max: ecMax });
-    setTankHeightMm(tankMax);
-  }, [ecMin, ecMax, tankMax]);
+  // Use MQTT data from broker
+  const { dataHistory, isConnected, error } = useMqttSensorData();
   
-  // Use real-time data from Supabase
-  const { data: sensorData, loading, error, isConnected } = useRealtimeSensorData(50);
-  
-  // Get current values from latest sensor reading with unit conversions
-  const currentEC = sensorData && sensorData.length > 0 ? sensorData[0].ec_val / 1000 : 0; // Convert µS/cm to mS/cm
-  const waterLevelMm = sensorData && sensorData.length > 0 ? sensorData[0].waterlevel : 0; // mmH2O
-  const waterLevel = Math.min(100, Math.max(0, (waterLevelMm / tankHeightMm) * 100)); // Convert to percentage
-  
-  // Check if system is online based on data freshness (5 minutes threshold)
-  const isOnline = isConnected && sensorData && sensorData.length > 0 && 
-    (new Date().getTime() - new Date(sensorData[0].updated_at).getTime()) < 5 * 60 * 1000; // 5 minutes in milliseconds
-
+  // Check if system is online based on data freshness
+  const isOnline = isConnected && dataHistory.length > 0 && 
+    (new Date().getTime() - new Date(dataHistory[0].updated_at).getTime()) < 2 * 60 * 1000; // 2 minutes threshold
 
   // Update last update time when new data arrives
   useEffect(() => {
-    if (sensorData && sensorData.length > 0) {
-      setLastUpdate(new Date(sensorData[0].updated_at));
+    if (dataHistory.length > 0) {
+      const newUpdateTime = new Date(dataHistory[0].updated_at);
+      if (newUpdateTime.getTime() !== lastUpdate.getTime()) {
+        setLastUpdate(newUpdateTime);
+      }
     }
-  }, [sensorData]);
+  }, [dataHistory]);
 
-  // Periodic check for data freshness (every minute)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Force re-render to update online status
-      setLastUpdate(new Date());
-    }, 60000); // Check every minute
-
-    return () => clearInterval(interval);
-  }, []);
-
-
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     setIsRefreshing(true);
-    
-    // Refresh data by updating last update time
-    setLastUpdate(new Date());
-    setIsRefreshing(false);
-    
-    toast({
-      title: "Data refreshed",
-      description: "Latest sensor readings have been updated.",
-    });
+    setTimeout(() => {
+      setIsRefreshing(false);
+      toast({
+        title: "Refreshed",
+        description: "Dashboard updated with latest data.",
+      });
+    }, 500);
   };
 
   const handleDownload = () => {
-    if (!sensorData || sensorData.length === 0) {
+    if (dataHistory.length === 0) {
       toast({
         title: "No data available",
         description: "No sensor data to export.",
@@ -77,15 +54,15 @@ const Dashboard = () => {
       return;
     }
 
-    // Create CSV data from real sensor data
+    // Create CSV data
     const csvData = [
       ['Timestamp', 'EC (µS/cm)', 'EC (mS/cm)', 'Water Level (mmH2O)', 'Water Level (%)', 'Water Temperature (°C)'],
-      ...sensorData.map((reading) => [
+      ...dataHistory.map((reading) => [
         new Date(reading.updated_at).toISOString(),
-        reading.ec_val.toFixed(0), // Raw µS/cm value
-        (reading.ec_val / 1000).toFixed(2), // Converted mS/cm value
-        reading.waterlevel.toFixed(0), // Raw mmH2O value
-        Math.min(100, Math.max(0, (reading.waterlevel / tankHeightMm) * 100)).toFixed(1), // Converted percentage
+        reading.ec_val.toFixed(0),
+        (reading.ec_val / 1000).toFixed(2),
+        reading.waterlevel.toFixed(0),
+        Math.min(100, Math.max(0, (reading.waterlevel / tankHeightMm) * 100)).toFixed(1),
         reading.watertemp.toFixed(1)
       ])
     ];
@@ -95,31 +72,35 @@ const Dashboard = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `hydroponic-data-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `sensor-data-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
     
     toast({
       title: "Download complete",
-      description: "Data exported successfully as CSV file.",
+      description: "Data exported successfully.",
     });
   };
 
-  const handleThresholdUpdate = async (newRange: { min: number; max: number }) => {
+  const handleThresholdUpdate = (newRange: { min: number; max: number }) => {
     setECThreshold(newRange);
-    await saveConfig({ ecMin: newRange.min, ecMax: newRange.max, tankMax: tankHeightMm })
+    toast({
+      title: "Threshold updated",
+      description: `EC range set to ${newRange.min} - ${newRange.max} mS/cm`,
+    });
   };
 
-  const handleTankHeightChange = async (newHeight: number) => {
+  const handleTankHeightChange = (newHeight: number) => {
     setTankHeightMm(newHeight);
-    await saveConfig({ ecMin: ecThreshold.min, ecMax: ecThreshold.max, tankMax: newHeight })
+    toast({
+      title: "Tank height updated",
+      description: `Tank height set to ${newHeight} mm`,
+    });
   };
-
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 p-4 sm:p-6 font-sans
-      relative overflow-hidden">
-      {/* Sophisticated background gradient overlays */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 p-4 sm:p-6 font-sans relative overflow-hidden">
+      {/* Background gradients */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 via-transparent to-cyan-50/30"></div>
       <div className="absolute inset-0 bg-gradient-to-tl from-slate-50/20 via-transparent to-blue-50/20"></div>
       
@@ -129,6 +110,32 @@ const Dashboard = () => {
           lastUpdate={lastUpdate}
           isOnline={isOnline}
         />
+        
+        {/* MQTT Status Indicator */}
+        <div className="flex justify-center">
+          <Badge variant="outline" className="flex items-center gap-2 px-4 py-2 text-sm">
+            {isConnected ? (
+              <>
+                <Wifi className="h-4 w-4 text-green-600" />
+                <span className="font-medium">MQTT Connected</span>
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-4 w-4 text-red-600" />
+                <span className="font-medium">MQTT Disconnected</span>
+                <div className="w-2 h-2 rounded-full bg-red-500" />
+              </>
+            )}
+          </Badge>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+            <p className="text-red-800 font-medium">⚠️ {error}</p>
+          </div>
+        )}
         
         {/* Action buttons */}
         <div className="flex flex-wrap gap-5 justify-end">
@@ -143,7 +150,6 @@ const Dashboard = () => {
             <Download className="h-5 w-5 mr-3" />
             Export Data
           </Button>
-          
 
           <Button
             variant="default"
@@ -165,12 +171,20 @@ const Dashboard = () => {
             unit="mS/cm"
             optimalRange={ecThreshold}
             onRangeUpdate={handleThresholdUpdate}
+            sensorData={dataHistory}
+            loading={false}
+            error={error}
+            isConnected={isConnected}
           />
           
           <WaterLevelCard
             tankHeightMm={tankHeightMm}
             lowThreshold={25}
             onTankHeightChange={handleTankHeightChange}
+            sensorData={dataHistory}
+            loading={false}
+            error={error}
+            isConnected={isConnected}
           />
         </div>
 
@@ -181,12 +195,12 @@ const Dashboard = () => {
               Powered by REDtone
             </p>
             <p className="text-sm font-medium text-gray-500">
-              Fertilizer Monitoring System
+              © 2025 Fertilizer Monitoring System
             </p>
             <div className="flex items-center gap-2 mt-2">
-              <div className="w-2 h-2 bg-primary rounded-full"></div>
-              <div className="w-2 h-2 bg-secondary rounded-full"></div>
-              <div className="w-2 h-2 bg-accent rounded-full"></div>
+              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
             </div>
           </div>
         </footer>

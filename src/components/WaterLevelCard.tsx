@@ -7,35 +7,41 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useRealtimeSensorData } from '@/hooks/useRealtimeSensorData';
 import { SensorMetric } from '@/lib/supabase';
 
 interface WaterLevelCardProps {
   tankHeightMm?: number; // maximum tank height in mm
   lowThreshold?: number; // percentage below which level is considered low
   onTankHeightChange?: (newHeight: number) => void; // callback for height changes
+  sensorData?: SensorMetric[] | null;
+  loading?: boolean;
+  error?: string | null;
+  isConnected?: boolean;
 }
 
 const WaterLevelCard = ({ 
   tankHeightMm = 320, 
   lowThreshold = 20, 
-  onTankHeightChange 
+  onTankHeightChange,
+  sensorData,
+  loading = false,
+  error = null,
+  isConnected = false
 }: WaterLevelCardProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [heightInput, setHeightInput] = useState(tankHeightMm.toString());
   const { toast } = useToast();
-  
-  // Fetch real-time data from Supabase
-  const { data: sensorData, loading, error, isConnected } = useRealtimeSensorData(1);
   
   // Refetch function for error state
   const refetch = () => {
     window.location.reload(); // Simple refresh for now
   };
   
-  // Get current water level (latest reading) - convert from mmH2O to percentage
-  const waterLevelMm = sensorData && sensorData.length > 0 ? sensorData[0].waterlevel : 0;
-  const level = Math.min(100, Math.max(0, (waterLevelMm / tankHeightMm) * 100)); // Convert mmH2O to percentage
+  // Get current water level (latest reading) - ADD NULL SAFETY
+  const waterLevelMm = sensorData && sensorData.length > 0 ? sensorData[0].waterlevel : null;
+  const level = waterLevelMm !== null && tankHeightMm > 0 
+    ? Math.min(100, Math.max(0, (waterLevelMm / tankHeightMm) * 100)) 
+    : 0; // Convert mmH2O to percentage
 
   const isLow = level < lowThreshold;
   const isCritical = level < 10;
@@ -191,12 +197,12 @@ const WaterLevelCard = ({
       <CardContent className="space-y-6 relative z-10">
         <div className="flex items-baseline gap-3">
           <span className="text-4xl font-bold text-slate-900">
-            {level.toFixed(1)}%
+            {waterLevelMm !== null ? level.toFixed(1) : '--'}%
           </span>
           <span className="text-lg font-medium text-slate-600">
-            ({waterLevelMm.toFixed(0)}mmH₂O / {tankHeightMm}mm)
+            ({waterLevelMm !== null ? waterLevelMm.toFixed(0) : '--'}mmH₂O / {tankHeightMm}mm)
             </span>
-          {isLow && (
+          {isLow && waterLevelMm !== null && (
             <AlertTriangle className="h-6 w-6 text-amber-500 ml-2 animate-pulse" />
           )}
         </div>
@@ -283,7 +289,9 @@ const WaterLevelCard = ({
                 <div className="grid grid-cols-1 gap-2 text-sm">
                   <div className="flex justify-between">
                     <span className="font-medium text-slate-600">Water Level:</span>
-                    <span className="font-bold text-slate-800">{level.toFixed(1)}% ({waterLevelMm.toFixed(0)}mmH₂O)</span>
+                    <span className="font-bold text-slate-800">
+                      {waterLevelMm !== null ? `${level.toFixed(1)}% (${waterLevelMm.toFixed(0)}mmH₂O)` : 'No data'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-slate-600">Tank Height:</span>
@@ -291,7 +299,9 @@ const WaterLevelCard = ({
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-slate-600">Free Space:</span>
-                    <span className="font-bold text-slate-800">{tankHeightMm - waterLevelMm}mm</span>
+                    <span className="font-bold text-slate-800">
+                      {waterLevelMm !== null ? `${tankHeightMm - waterLevelMm}mm` : 'No data'}
+                    </span>
                   </div>
                 </div>
               </div>

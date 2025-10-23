@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useRef, useState } from 'react';
-import { useRealtimeSensorData } from '@/hooks/useRealtimeSensorData';
 import { SensorMetric } from '@/lib/supabase';
 
 interface ECData {
@@ -21,22 +20,51 @@ interface ECMonitorCardProps {
   optimalRange?: { min: number; max: number };
   onAlarmAcknowledge?: () => void;
   onRangeUpdate?: (newRange: { min: number; max: number }) => void;
+  sensorData?: SensorMetric[] | null;
+  loading?: boolean;
+  error?: string | null;
+  isConnected?: boolean;
 }
 
 const ECMonitorCard = ({ 
   unit = 'mS/cm', 
   optimalRange = { min: 1.2, max: 2.0 }, 
   onAlarmAcknowledge, 
-  onRangeUpdate 
+  onRangeUpdate,
+  sensorData,
+  loading = false,
+  error = null,
+  isConnected = false
 }: ECMonitorCardProps) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const userInteractedRef = useRef(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [minValue, setMinValue] = useState(optimalRange.min.toString());
   const [maxValue, setMaxValue] = useState(optimalRange.max.toString());
   const { toast } = useToast();
   
-  // Fetch real-time data from Supabase
-  const { data: sensorData, loading, error, isConnected } = useRealtimeSensorData(50);
+  // Initialize AudioContext on first user interaction
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      if (!userInteractedRef.current) {
+        userInteractedRef.current = true;
+        try {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        } catch (error) {
+          console.warn('AudioContext not supported:', error);
+        }
+      }
+    };
+
+    document.addEventListener('click', handleUserInteraction);
+    document.addEventListener('keydown', handleUserInteraction);
+    
+    return () => {
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
+    };
+  }, []);
   
   // Refetch function for error state
   const refetch = () => {
@@ -65,35 +93,41 @@ const ECMonitorCard = ({
 
   // Create alarm beep sound effect
   useEffect(() => {
-    if (status.isAlarm && !audioRef.current) {
-      // Create a simple beep sound using Web Audio API
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (status.isAlarm && audioContextRef.current && userInteractedRef.current) {
       const createBeep = () => {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = 800; // High pitch beep
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.2);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.2);
+        try {
+          const audioContext = audioContextRef.current;
+          if (!audioContext || audioContext.state === 'suspended') {
+            audioContext?.resume();
+            return;
+          }
+
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.frequency.value = 800;
+          oscillator.type = 'sine';
+          
+          gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+          gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.01);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.2);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.2);
+        } catch (error) {
+          console.warn('Audio playback failed:', error);
+        }
       };
 
-      // Play beep every 3 seconds when in alarm state
       const interval = setInterval(() => {
         if (status.isAlarm) {
           createBeep();
         }
       }, 3000);
 
-      // Initial beep
       createBeep();
 
       return () => clearInterval(interval);
@@ -353,6 +387,7 @@ const ECMonitorCard = ({
               />
               {/* Subtle pulsing dot at the end */}
               <Line 
+                key="pulse-dot"
                 type="monotone" 
                 dataKey="value" 
                 stroke="transparent"
@@ -362,6 +397,7 @@ const ECMonitorCard = ({
                   if (index === chartData.length - 1) {
                     return (
                       <circle 
+                        key={`pulse-${index}`}
                         cx={cx} 
                         cy={cy} 
                         r={4} 
