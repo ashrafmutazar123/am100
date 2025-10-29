@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import mqtt, { MqttClient } from 'mqtt';
+import { saveSensorReading } from '@/lib/supabase';
 
 export interface SensorDataHistory {
   id: number;
@@ -26,7 +27,25 @@ export function useMqttSensorData() {
     ec_val: 0,
     watertemp: 0,
     waterlevel: 0,
+    hasEcTemp: false,      // Track if we've received EC/Temp
+    hasWaterLevel: false,  // Track if we've received Water Level
   });
+
+  // Save to Supabase when we have complete data
+  const saveToSupabase = async () => {
+    if (latestDataRef.current.hasEcTemp && latestDataRef.current.hasWaterLevel) {
+      await saveSensorReading({
+        device_id: 'sensor_01',
+        ec_val: latestDataRef.current.ec_val,
+        watertemp: latestDataRef.current.watertemp,
+        waterlevel: latestDataRef.current.waterlevel,
+      });
+      
+      // Reset flags after saving
+      latestDataRef.current.hasEcTemp = false;
+      latestDataRef.current.hasWaterLevel = false;
+    }
+  };
 
   useEffect(() => {
     const client = mqtt.connect(MQTT_BROKER, {
@@ -74,9 +93,13 @@ export function useMqttSensorData() {
           
           latestDataRef.current.ec_val = ecRaw / 100;  // µS/cm
           latestDataRef.current.watertemp = tempRaw / 10;  // °C
+          latestDataRef.current.hasEcTemp = true;
           
           console.log(`📊 HEX→ EC: ${latestDataRef.current.ec_val} µS/cm, Temp: ${latestDataRef.current.watertemp}°C`);
           updated = true;
+          
+          // Try to save to Supabase if we have all data
+          saveToSupabase();
         }
         
         // Water Level sensor (0x0D)
@@ -84,9 +107,13 @@ export function useMqttSensorData() {
           // Parse Water Level (2 bytes, big-endian)
           const wl = (data[3] << 8) | data[4];
           latestDataRef.current.waterlevel = wl;
+          latestDataRef.current.hasWaterLevel = true;
           
           console.log(`💧 HEX→ Water Level: ${wl} mmH₂O`);
           updated = true;
+          
+          // Try to save to Supabase if we have all data
+          saveToSupabase();
         }
         
         // Add to history if we got new data

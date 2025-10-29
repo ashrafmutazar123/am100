@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fetchSensorConfig, upsertSensorConfig, SensorConfig } from '@/lib/supabase';
 import DashboardHeader from '@/components/DashboardHeader';
 import ECMonitorCard from '@/components/ECMonitorCard';
 import WaterLevelCard from '@/components/WaterLevelCard';
@@ -14,10 +15,24 @@ const Dashboard = () => {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [ecThreshold, setECThreshold] = useState({ min: 1.2, max: 4.0 });
+  const [waterlevelMin, setWaterlevelMin] = useState(50);
+  const [waterlevelMax, setWaterlevelMax] = useState(200);
   const { toast } = useToast();
   
   // Use MQTT data from broker
   const { dataHistory, isConnected, error } = useMqttSensorData();
+
+  // Load config from Supabase on mount
+  useEffect(() => {
+    fetchSensorConfig().then((config) => {
+      if (config) {
+        setTankHeightMm(config.tank_max ?? 200);
+        setECThreshold({ min: config.ec_min ?? 1.2, max: config.ec_max ?? 4.0 });
+        setWaterlevelMin(config.waterlevel_min ?? 50);
+        setWaterlevelMax(config.waterlevel_max ?? 200);
+      }
+    });
+  }, []);
   
   // Check if system is online based on data freshness
   const isOnline = isConnected && dataHistory.length > 0 && 
@@ -82,16 +97,34 @@ const Dashboard = () => {
     });
   };
 
-  const handleThresholdUpdate = (newRange: { min: number; max: number }) => {
+  const handleThresholdUpdate = async (newRange: { min: number; max: number }) => {
     setECThreshold(newRange);
+    // Save to Supabase
+    await upsertSensorConfig({
+      id: 1,
+      ec_min: newRange.min,
+      ec_max: newRange.max,
+      tank_max: tankHeightMm,
+      waterlevel_min: waterlevelMin,
+      waterlevel_max: waterlevelMax,
+    });
     toast({
       title: "Threshold updated",
       description: `EC range set to ${newRange.min} - ${newRange.max} mS/cm`,
     });
   };
 
-  const handleTankHeightChange = (newHeight: number) => {
+  const handleTankHeightChange = async (newHeight: number) => {
     setTankHeightMm(newHeight);
+    // Save to Supabase
+    await upsertSensorConfig({
+      id: 1,
+      ec_min: ecThreshold.min,
+      ec_max: ecThreshold.max,
+      tank_max: newHeight,
+      waterlevel_min: waterlevelMin,
+      waterlevel_max: waterlevelMax,
+    });
     toast({
       title: "Tank height updated",
       description: `Tank height set to ${newHeight} mm`,
