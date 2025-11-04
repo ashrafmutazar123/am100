@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- PWA Meta Tags -->
+    <title>GreenGrow NFT Farm Monitor</title>
+    <meta name="description" content="Hydroponic fertilizer monitoring system for GreenGrow NFT Farm - Real-time EC, temperature, and water level monitoring" />
+    <meta name="author" content="REDtone" />
+    <meta name="theme-color" content="#88B04B" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Farm Monitor" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/am100/manifest.json" />
+    
+    <!-- Favicon and App Icons -->
+    <link rel="icon" type="image/gif" href="/am100/organic.gif" />
+    <link rel="apple-touch-icon" href="/am100/organic.gif" />
+    
+    <!-- Optimized Roboto font import with all weights and display=swap for better performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap">
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="GreenGrow NFT Farm Monitor" />
+    <meta property="og:description" content="Real-time hydroponic monitoring system" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/organic.gif" />
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="GreenGrow Farm Monitor" />
+    <meta name="twitter:description" content="Real-time hydroponic monitoring" />
+    <meta name="twitter:image" content="/organic.gif" />
+    <script type="module" crossorigin src="/am100/assets/index-BnsYX3z3.js"></script>
+    <link rel="stylesheet" crossorigin href="/am100/assets/index-KY7_8Rd1.css">
+  <link rel="manifest" href="/am100/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/am100/registerSW.js"></script></head>
+
+  <body>
+    <div id="root"></div>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {
+              console.log('✅ PWA: Service Worker registered successfully:', registration.scope);
+            })
+            .catch((error) => {
+              console.log('❌ PWA: Service Worker registration failed:', error);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
