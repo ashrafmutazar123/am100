@@ -1,0 +1,46 @@
+{
+  "name": "GreenGrow NFT Farm Monitor",
+  "short_name": "Farm Monitor",
+  "description": "Hydroponic fertilizer monitoring system for GreenGrow NFT Farm",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eef5f9",
+  "theme_color": "#88B04B",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/organic.gif",
+      "sizes": "192x192",
+      "type": "image/gif",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/organic.gif",
+      "sizes": "512x512",
+      "type": "image/gif",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["agriculture", "monitoring", "iot"],
+  "screenshots": [
+    {
+      "src": "/screenshot.png",
+      "sizes": "1280x720",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View farm dashboard",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/organic.gif",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
