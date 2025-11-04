@@ -18,16 +18,16 @@ export default defineConfig({
         background_color: '#eef5f9',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: '/am100/',
         icons: [
           {
-            src: '/organic.gif',
+            src: '/am100/organic.gif',
             sizes: '192x192',
             type: 'image/gif',
             purpose: 'any maskable'
           },
           {
-            src: '/organic.gif',
+            src: '/am100/organic.gif',
             sizes: '512x512',
             type: 'image/gif',
             purpose: 'any maskable'
