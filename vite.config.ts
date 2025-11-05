@@ -4,12 +4,14 @@ import path from "path";
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: "/am100/",   // For GitHub Pages deployment
+  base: "/am100/",
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
+      base: '/am100/',
+      scope: '/am100/',
       includeAssets: ['organic.gif', 'robots.txt', 'vite.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'GreenGrow NFT Farm Monitor',
