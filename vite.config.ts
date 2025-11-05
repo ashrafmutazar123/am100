@@ -9,34 +9,63 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['organic.gif', 'robots.txt'],
+      injectRegister: 'auto',
+      includeAssets: ['organic.gif', 'robots.txt', 'vite.svg'],
       manifest: {
         name: 'GreenGrow NFT Farm Monitor',
         short_name: 'Farm Monitor',
         description: 'Hydroponic fertilizer monitoring system for GreenGrow NFT Farm',
         theme_color: '#88B04B',
-        background_color: '#eef5f9',
+        background_color: '#F5F0E1',
         display: 'standalone',
         orientation: 'portrait',
+        scope: '/am100/',
         start_url: '/am100/',
+        id: '/am100/',
         icons: [
           {
-            src: '/am100/organic.gif',
-            sizes: '192x192',
-            type: 'image/gif',
-            purpose: 'any maskable'
+            src: '/am100/pwa-64x64.png',
+            sizes: '64x64',
+            type: 'image/png'
           },
           {
-            src: '/am100/organic.gif',
+            src: '/am100/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: '/am100/pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/gif',
-            purpose: 'any maskable'
+            type: 'image/png'
+          },
+          {
+            src: '/am100/maskable-icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
+        ],
+        categories: ['agriculture', 'monitoring', 'iot'],
+        shortcuts: [
+          {
+            name: 'Dashboard',
+            short_name: 'Dashboard',
+            description: 'View farm dashboard',
+            url: '/am100/',
+            icons: [
+              {
+                src: '/am100/pwa-192x192.png',
+                sizes: '192x192'
+              }
+            ]
           }
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,gif}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,gif,woff,woff2}'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB limit
+        navigateFallback: '/am100/index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/auth/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -65,11 +94,26 @@ export default defineConfig({
                 statuses: [0, 200]
               }
             }
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 5 // 5 minutes
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
           }
         ]
       },
       devOptions: {
-        enabled: true
+        enabled: true,
+        navigateFallback: 'index.html'
       }
     })
   ],
