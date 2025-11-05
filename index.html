@@ -2,23 +2,29 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
     
     <!-- PWA Meta Tags -->
     <title>GreenGrow NFT Farm Monitor</title>
     <meta name="description" content="Hydroponic fertilizer monitoring system for GreenGrow NFT Farm - Real-time EC, temperature, and water level monitoring" />
     <meta name="author" content="REDtone" />
     <meta name="theme-color" content="#88B04B" />
+    
+    <!-- iOS Specific Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Farm Monitor" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
     
     <!-- PWA Manifest -->
-    <link rel="manifest" href="/am100/manifest.json" />
+    <link rel="manifest" href="/am100/manifest.webmanifest" crossorigin="use-credentials" />
     
     <!-- Favicon and App Icons -->
-    <link rel="icon" type="image/gif" href="/am100/organic.gif" />
-    <link rel="apple-touch-icon" href="/am100/organic.gif" />
+    <link rel="icon" type="image/svg+xml" href="/am100/vite.svg" />
+    <link rel="apple-touch-icon" href="/am100/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/am100/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/am100/pwa-512x512.png" color="#88B04B" />
     
     <!-- Optimized Roboto font import with all weights and display=swap for better performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,27 +42,11 @@
     <meta name="twitter:title" content="GreenGrow Farm Monitor" />
     <meta name="twitter:description" content="Real-time hydroponic monitoring" />
     <meta name="twitter:image" content="/organic.gif" />
-    <script type="module" crossorigin src="/am100/assets/index-Lj15Xs_j.js"></script>
-    <link rel="stylesheet" crossorigin href="/am100/assets/index-KY7_8Rd1.css">
+    <script type="module" crossorigin src="/am100/assets/index-D8LNHiv1.js"></script>
+    <link rel="stylesheet" crossorigin href="/am100/assets/index-B4OO5ZYD.css">
   <link rel="manifest" href="/am100/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/am100/registerSW.js"></script></head>
 
   <body>
-    <div id="root"></div>
-    
-    <!-- PWA Service Worker Registration -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker
-            .register('/sw.js')
-            .then((registration) => {
-              console.log('✅ PWA: Service Worker registered successfully:', registration.scope);
-            })
-            .catch((error) => {
-              console.log('❌ PWA: Service Worker registration failed:', error);
-            });
-        });
-      }
-    </script>
+    <div id="root"></div>
   </body>
 </html>

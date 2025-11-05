@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Verification Tool</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background: linear-gradient(135deg, #F5F0E1, #eef5f9);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            color: #88B04B;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .check-item {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 4px solid #ccc;
+        }
+        .check-item.pass {
+            background: #e8f5e9;
+            border-left-color: #88B04B;
+        }
+        .check-item.fail {
+            background: #ffebee;
+            border-left-color: #ef5350;
+        }
+        .check-item h3 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .check-item p {
+            font-size: 14px;
+            color: #666;
+        }
+        .icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        button {
+            background: #88B04B;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #6a9037;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌱 PWA Verification Tool</h1>
+        <p class="subtitle">GreenGrow Farm Monitor - Installation Checker</p>
+
+        <button onclick="runChecks()">🔍 Run All Checks</button>
+        <button onclick="checkManifest()">📄 Check Manifest</button>
+        <button onclick="checkServiceWorker()">⚙️ Check Service Worker</button>
+        <button onclick="clearCache()">🗑️ Clear Cache</button>
+
+        <div id="results"></div>
+
+        <div class="info-box" style="margin-top: 30px;">
+            <h3>📱 How to Install on iPhone</h3>
+            <ol style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                <li>Open this page in Safari (not Chrome/Firefox)</li>
+                <li>Tap the <strong>Share</strong> button (square with arrow pointing up)</li>
+                <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
+                <li>Tap <strong>"Add"</strong> in the top-right corner</li>
+                <li>Find the "Farm Monitor" icon on your home screen</li>
+                <li>Tap to launch the app!</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        async function runChecks() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h2 style="margin-top: 30px;">Verification Results:</h2>';
+
+            // Check 1: Service Worker Support
+            const swSupported = 'serviceWorker' in navigator;
+            addResult('Service Worker Support', swSupported, 
+                swSupported ? 'Your browser supports service workers' : 'Service workers not supported');
+
+            // Check 2: Service Worker Registration
+            if (swSupported) {
+                try {
+                    const registration = await navigator.serviceWorker.getRegistration('/am100/');
+                    addResult('Service Worker Registration', !!registration,
+                        registration ? `Registered at: ${registration.scope}` : 'Not registered yet');
+                    
+                    if (registration) {
+                        const sw = registration.active || registration.installing || registration.waiting;
+                        addResult('Service Worker State', !!sw,
+                            sw ? `State: ${sw.state}` : 'No active service worker');
+                    }
+                } catch (err) {
+                    addResult('Service Worker Check', false, err.message);
+                }
+            }
+
+            // Check 3: Manifest
+            const manifestLink = document.querySelector('link[rel="manifest"]');
+            addResult('Manifest Link', !!manifestLink,
+                manifestLink ? `Found: ${manifestLink.href}` : 'Manifest link not found');
+
+            if (manifestLink) {
+                try {
+                    const response = await fetch(manifestLink.href);
+                    const manifest = await response.json();
+                    addResult('Manifest Valid', true,
+                        `Name: ${manifest.name}, Icons: ${manifest.icons?.length || 0}`);
+                    console.log('Manifest:', manifest);
+                } catch (err) {
+                    addResult('Manifest Fetch', false, err.message);
+                }
+            }
+
+            // Check 4: Apple Touch Icon
+            const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+            addResult('Apple Touch Icon', !!appleIcon,
+                appleIcon ? `Found: ${appleIcon.href}` : 'Not found');
+
+            // Check 5: Viewport Meta
+            const viewport = document.querySelector('meta[name="viewport"]');
+            addResult('Viewport Meta', !!viewport,
+                viewport ? viewport.content : 'Not found');
+
+            // Check 6: HTTPS
+            const isHttps = window.location.protocol === 'https:';
+            addResult('HTTPS', isHttps,
+                isHttps ? 'Page served over HTTPS' : 'Not HTTPS (required for PWA)');
+
+            // Check 7: Display Mode
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            addResult('Standalone Mode', isStandalone,
+                isStandalone ? 'Running as installed PWA' : 'Running in browser (install to test)');
+
+            // Check 8: Cache Storage
+            if ('caches' in window) {
+                try {
+                    const cacheNames = await caches.keys();
+                    addResult('Cache Storage', cacheNames.length > 0,
+                        `${cacheNames.length} cache(s) found: ${cacheNames.join(', ')}`);
+                } catch (err) {
+                    addResult('Cache Storage', false, err.message);
+                }
+            }
+        }
+
+        function addResult(title, pass, message) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `check-item ${pass ? 'pass' : 'fail'}`;
+            div.innerHTML = `
+                <h3><span class="icon">${pass ? '✅' : '❌'}</span>${title}</h3>
+                <p>${message}</p>
+            `;
+            results.appendChild(div);
+        }
+
+        async function checkManifest() {
+            const manifestLink = document.querySelector('link[rel="manifest"]');
+            if (manifestLink) {
+                try {
+                    const response = await fetch(manifestLink.href);
+                    const manifest = await response.json();
+                    alert('Manifest loaded successfully!\n\n' + JSON.stringify(manifest, null, 2));
+                } catch (err) {
+                    alert('Error loading manifest: ' + err.message);
+                }
+            } else {
+                alert('Manifest link not found in page');
+            }
+        }
+
+        async function checkServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    if (registration) {
+                        alert(`Service Worker registered!\n\nScope: ${registration.scope}\nState: ${registration.active?.state || 'installing'}`);
+                    } else {
+                        alert('No service worker registered yet. Try reloading the page.');
+                    }
+                } catch (err) {
+                    alert('Error checking service worker: ' + err.message);
+                }
+            } else {
+                alert('Service workers not supported in this browser');
+            }
+        }
+
+        async function clearCache() {
+            if ('caches' in window) {
+                try {
+                    const cacheNames = await caches.keys();
+                    await Promise.all(cacheNames.map(name => caches.delete(name)));
+                    
+                    if ('serviceWorker' in navigator) {
+                        const registration = await navigator.serviceWorker.getRegistration();
+                        if (registration) {
+                            await registration.unregister();
+                        }
+                    }
+                    
+                    alert(`✅ Cleared ${cacheNames.length} cache(s) and unregistered service worker.\n\nReload the page to start fresh.`);
+                } catch (err) {
+                    alert('Error clearing cache: ' + err.message);
+                }
+            } else {
+                alert('Cache API not supported');
+            }
+        }
+
+        // Auto-run checks on load
+        window.addEventListener('load', () => {
+            setTimeout(runChecks, 500);
+        });
+    </script>
+</body>
+</html>
