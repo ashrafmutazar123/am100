@@ -16,8 +16,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useMqttSensorData } from '@/hooks/useMQTTSensorData';
 
 const Dashboard = () => {
-  console.log('📊 Dashboard component rendering...');
-  
   const [tankHeightMm, setTankHeightMm] = useState(200);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);

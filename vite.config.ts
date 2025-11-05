@@ -20,7 +20,7 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         scope: '/am100/',
-        start_url: '/am100/#/',
+        start_url: '/am100/',
         id: '/am100/',
         icons: [
           {

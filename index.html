@@ -46,52 +46,6 @@
 
   <body>
     <div id="root"></div>
-    
-    <!-- Error handling and debugging -->
-    <script>
-      // Global error handler to catch JavaScript errors
-      window.addEventListener('error', function(event) {
-        console.error('❌ Global Error:', event.error);
-        const root = document.getElementById('root');
-        if (root && !root.innerHTML) {
-          root.innerHTML = `
-            <div style="padding: 20px; font-family: Arial, sans-serif; background: #ffebee; min-height: 100vh;">
-              <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; margin-top: 50px;">
-                <h1 style="color: #c62828; margin-top: 0;">⚠️ Loading Error</h1>
-                <h2 style="color: #666; font-size: 18px;">GreenGrow Farm Monitor</h2>
-                <p style="color: #333; line-height: 1.6;">
-                  <strong>Error:</strong> ${event.error?.message || 'Unknown error'}<br>
-                  <strong>File:</strong> ${event.filename}<br>
-                  <strong>Line:</strong> ${event.lineno}:${event.colno}
-                </p>
-                <button onclick="window.location.reload()" style="background: #88B04B; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 20px;">
-                  🔄 Reload App
-                </button>
-                <a href="/am100/test.html" style="display: inline-block; margin-left: 10px; padding: 12px 24px; background: #2196F3; color: white; text-decoration: none; border-radius: 6px; margin-top: 20px;">
-                  🧪 Test Page
-                </a>
-              </div>
-            </div>
-          `;
-        }
-      });
-      
-      // Log initial load
-      console.log('🌱 GreenGrow Farm Monitor - Starting...');
-      console.log('Base URL: /am100/');
-      console.log('Location:', window.location.href);
-    </script>
-    
     <script type="module" src="./src/main.tsx"></script>
-    
-    <!-- PWA Service Worker Registration -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          // Don't register service worker manually - Vite PWA plugin handles it
-          console.log('✅ PWA: Service Worker will be registered by Vite PWA plugin');
-        });
-      }
-    </script>
   </body>
 </html>
