@@ -1,5 +1,9 @@
-import { Leaf, Clock, Wifi, WifiOff } from 'lucide-react';
+import { Leaf, Clock, Wifi, WifiOff, LogOut } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 
 interface DashboardHeaderProps {
   farmName?: string;
@@ -12,6 +16,27 @@ const DashboardHeader = ({
   lastUpdate, 
   isOnline
 }: DashboardHeaderProps) => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to log out",
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out",
+      });
+      navigate('/login');
+    }
+  };
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -47,7 +72,7 @@ const DashboardHeader = ({
           </div>
           <div className="flex flex-col">
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight drop-shadow-sm text-white">
-              {farmName}
+            {farmName}
             </h1>
             <p className="text-lg font-semibold text-slate-200 drop-shadow-sm mt-1">
               Fertilizer Monitoring Dashboard
@@ -59,7 +84,7 @@ const DashboardHeader = ({
         </div>
         
         <div className="flex flex-col sm:items-end gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Badge 
               variant={isOnline ? 'default' : 'destructive'}
               className={`
@@ -80,6 +105,16 @@ const DashboardHeader = ({
                 </>
               )}
             </Badge>
+            
+            <Button
+              onClick={handleLogout}
+              variant="outline"
+              size="sm"
+              className="bg-slate-700/50 hover:bg-red-600 text-white border-slate-500 hover:border-red-500 transition-all"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
       </div>

@@ -1,19 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { fetchSensorConfig, upsertSensorConfig, SensorConfig } from '@/lib/supabase';
-import Sidebar from '@/components/Sidebar';
 import DashboardHeader from '@/components/DashboardHeader';
 import ECMonitorCard from '@/components/ECMonitorCard';
 import WaterLevelCard from '@/components/WaterLevelCard';
 import { DatePicker } from '@/components/DatePicker';
 import LoadingAnimation from '@/components/LoadingAnimation';
 import InstallPrompt from '@/components/InstallPrompt';
+import RelayControlCard from '@/components/RelayControlCard';
+import ScheduleManager from '@/components/Schedule.tsx';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Download, Wifi, WifiOff } from 'lucide-react';
+import { RefreshCw, Download, Bell, BellOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMqttSensorData } from '@/hooks/useMQTTSensorData';
+import { useNotifications } from '@/hooks/useNotifications';
+import mqtt from 'mqtt';
 
 const Dashboard = () => {
   const [tankHeightMm, setTankHeightMm] = useState(200);
@@ -33,10 +36,12 @@ const Dashboard = () => {
     return d.toISOString().slice(0, 10);
   });
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const { toast } = useToast();
   
   // Use MQTT data from broker
   const { dataHistory, isConnected, error } = useMqttSensorData();
+  const { permission, requestPermission, sendNotification } = useNotifications();
 
   // Load config from Supabase on mount
   useEffect(() => {
@@ -202,6 +207,164 @@ const Dashboard = () => {
     setExportEnd(end.toISOString().slice(0, 10));
   };
 
+  const handleNotificationToggle = async () => {
+    if (!notificationsEnabled) {
+      // Turning ON
+      const result = await requestPermission();
+      if (result === 'granted') {
+        setNotificationsEnabled(true);
+        toast({
+          title: "Notifications Enabled",
+          description: "Receive real-time alerts when sensor values exceed thresholds",
+        });
+        
+        // Send welcome notification
+        await sendNotification({
+          title: '🌱 Notifications Enabled!',
+          body: 'You will now receive real-time alerts from your farm monitoring system.',
+          requireInteraction: false
+        });
+      } else {
+        toast({
+          title: "Permission Denied",
+          description: "Please enable notifications in your browser settings",
+          variant: "destructive"
+        });
+      }
+    } else {
+      // Turning OFF
+      setNotificationsEnabled(false);
+      toast({
+        title: "Notifications Disabled",
+        description: "Real-time alerts have been disabled",
+      });
+    }
+  };
+
+  // Handle schedule execution - sends MQTT commands for automated relay control
+  const handleScheduleExecute = (relay: string, state: boolean, duration?: number) => {
+    // Convert relay1 → R1, relay2 → R2, etc.
+    const relayNum = relay.replace('relay', '');
+    const command = `R${relayNum}${state ? 'ON' : 'OFF'}`;
+    
+    // MQTT broker configuration
+    const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+    const MQTT_TOPIC_RELAY = 'dtu/34EAE7F0701C/relay';
+    
+    // Create MQTT client and publish command
+    const client = mqtt.connect(MQTT_BROKER, {
+      clientId: `dashboard_schedule_${Math.random().toString(16).slice(2, 10)}`,
+      clean: true,
+      reconnectPeriod: 0, // Don't reconnect, one-shot command
+    });
+    
+    client.on('connect', () => {
+      console.log(`[Schedule] Publishing ${command} to ${MQTT_TOPIC_RELAY}`);
+      client.publish(MQTT_TOPIC_RELAY, command, { qos: 1 }, (err) => {
+        if (err) {
+          console.error('[Schedule] Publish error:', err);
+          toast({
+            title: "Schedule Command Failed",
+            description: `Failed to send ${command}`,
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Schedule Executed",
+            description: `${command} sent successfully${duration ? ` (auto-off in ${duration}s)` : ''}`,
+          });
+        }
+        client.end();
+      });
+    });
+    
+    client.on('error', (err) => {
+      console.error('[Schedule] MQTT error:', err);
+      toast({
+        title: "MQTT Connection Error",
+        description: "Failed to connect to broker",
+        variant: "destructive"
+      });
+      client.end();
+    });
+  };
+
+  // Add notification check function
+  const checkAlertsAndNotify = (latestData: any, thresholds: any) => {
+    if (!latestData || !notificationsEnabled) return;
+
+    const ec_ms = latestData.ec_val / 1000;
+    const temp = latestData.watertemp;
+    const level = latestData.waterlevel;
+
+    // EC Alerts
+    if (ec_ms < thresholds.ec_min) {
+      sendNotification({
+        title: '🔻 EC Level LOW',
+        body: `EC: ${ec_ms.toFixed(2)} mS/cm (Min: ${thresholds.ec_min} mS/cm)\nNutrient solution may be weak.`,
+        tag: 'ec-low',
+        data: { type: 'ec', status: 'low', value: ec_ms }
+      });
+    } else if (ec_ms > thresholds.ec_max) {
+      sendNotification({
+        title: '🔺 EC Level HIGH',
+        body: `EC: ${ec_ms.toFixed(2)} mS/cm (Max: ${thresholds.ec_max} mS/cm)\nNutrient solution may be too concentrated.`,
+        tag: 'ec-high',
+        data: { type: 'ec', status: 'high', value: ec_ms }
+      });
+    }
+
+    // Temperature Alerts
+    if (temp < thresholds.temp_min) {
+      sendNotification({
+        title: '🔻 Temperature LOW',
+        body: `Water Temp: ${temp}°C (Min: ${thresholds.temp_min}°C)\nMay slow plant growth.`,
+        tag: 'temp-low',
+        data: { type: 'temperature', status: 'low', value: temp }
+      });
+    } else if (temp > thresholds.temp_max) {
+      sendNotification({
+        title: '🔺 Temperature HIGH',
+        body: `Water Temp: ${temp}°C (Max: ${thresholds.temp_max}°C)\nMay stress plants.`,
+        tag: 'temp-high',
+        data: { type: 'temperature', status: 'high', value: temp }
+      });
+    }
+
+    // Water Level Alerts
+    if (level < thresholds.waterlevel_min) {
+      sendNotification({
+        title: '🚨 Water Level CRITICAL',
+        body: `Level: ${level} mmH₂O (Min: ${thresholds.waterlevel_min} mmH₂O)\nRefill reservoir immediately!`,
+        tag: 'water-critical',
+        requireInteraction: true,
+        data: { type: 'waterlevel', status: 'critical', value: level }
+      });
+    } else if (level > thresholds.waterlevel_max) {
+      sendNotification({
+        title: '⚠️ Water Level HIGH',
+        body: `Level: ${level} mmH₂O (Max: ${thresholds.waterlevel_max} mmH₂O)\nRisk of overflow.`,
+        tag: 'water-high',
+        data: { type: 'waterlevel', status: 'high', value: level }
+      });
+    }
+  };
+
+  // Add to your existing useEffect where you fetch sensor data
+  useEffect(() => {
+    if (dataHistory && dataHistory.length > 0) {
+      const latestData = dataHistory[0];
+      checkAlertsAndNotify(latestData, {
+        ec_min: ecThreshold.min,
+        ec_max: ecThreshold.max,
+        temp_min: 20,
+        temp_max: 30,
+        waterlevel_min: waterlevelMin,
+        waterlevel_max: waterlevelMax
+      });
+    }
+  }, [dataHistory]);
+
   return (
     <>
       {/* Loading Animation Overlay */}
@@ -209,12 +372,6 @@ const Dashboard = () => {
       
       {/* PWA Install Prompt */}
       <InstallPrompt />
-      
-      {/* Sidebar Navigation */}
-      <Sidebar 
-        activeItem="dashboard"
-        onNavigate={(item) => console.log('Navigate to:', item)}
-      />
       
       <div className="min-h-screen p-4 sm:p-6 font-sans relative overflow-hidden" style={{ backgroundColor: '#eef5f9' }}>
         <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-blue-50/20"></div>
@@ -226,25 +383,6 @@ const Dashboard = () => {
             lastUpdate={lastUpdate}
             isOnline={isOnline}
           />
-        
-        {/* MQTT Status Indicator - Teal theme */}
-        <div className="flex justify-center">
-          <Badge variant="outline" className="flex items-center gap-2 px-4 py-2 text-sm bg-white/80 backdrop-blur-sm">
-            {isConnected ? (
-              <>
-                <Wifi className="h-4 w-4 text-teal-600" />
-                <span className="font-medium">MQTT Connected</span>
-                <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-              </>
-            ) : (
-              <>
-                <WifiOff className="h-4 w-4 text-red-600" />
-                <span className="font-medium">MQTT Disconnected</span>
-                <div className="w-2 h-2 rounded-full bg-red-500" />
-              </>
-            )}
-          </Badge>
-        </div>
 
         {/* Error Message */}
         {error && (
@@ -255,6 +393,33 @@ const Dashboard = () => {
         
         {/* Action buttons - Teal theme */}
         <div className="flex flex-wrap gap-5 justify-end">
+          {/* Notification Toggle Button */}
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={handleNotificationToggle}
+            className={`backdrop-blur-sm border-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 px-6 py-3 text-base font-semibold
+              ${notificationsEnabled 
+                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-400 text-green-700 hover:from-green-100 hover:to-emerald-100' 
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+          >
+            {notificationsEnabled ? (
+              <>
+                <Bell className="h-5 w-5 mr-3 animate-pulse" />
+                Alerts ON
+              </>
+            ) : (
+              <>
+                <BellOff className="h-5 w-5 mr-3" />
+                Alerts OFF
+              </>
+            )}
+          </Button>
+
+          {/* Schedule Manager Button */}
+          <ScheduleManager onScheduleExecute={handleScheduleExecute} />
+
           {/* Export Data Button triggers dialog */}
           <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
             <DialogTrigger asChild>
@@ -347,6 +512,11 @@ const Dashboard = () => {
             error={error}
             isConnected={isConnected}
           />
+        </div>
+
+        {/* ✨ NEW: Relay Control Card - Full width below sensor cards */}
+        <div className="w-full">
+          <RelayControlCard />
         </div>
 
         {/* Footer - Teal theme */}

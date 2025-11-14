@@ -116,3 +116,89 @@ export async function fetchRecentReadings(limit: number = 50) {
     return { success: false, error: err }
   }
 }
+
+// Schedule types and functions
+export interface RelaySchedule {
+  id: string
+  name: string
+  hour: number
+  minute: number
+  ampm: string | null
+  relay: string
+  state: string
+  duration: number
+  days: string[]
+  enabled: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+/**
+ * Fetch all relay schedules from Supabase
+ */
+export async function fetchSchedules(): Promise<RelaySchedule[]> {
+  const { data, error } = await supabase
+    .from('relay_schedules')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('❌ fetchSchedules error:', error)
+    return []
+  }
+  return data as RelaySchedule[]
+}
+
+/**
+ * Create a new relay schedule in Supabase
+ */
+export async function createSchedule(schedule: Omit<RelaySchedule, 'id' | 'created_at' | 'updated_at'>): Promise<RelaySchedule | null> {
+  console.log('🔵 createSchedule called with:', schedule);
+  
+  const { data, error } = await supabase
+    .from('relay_schedules')
+    .insert([schedule])
+    .select()
+    .single()
+
+  if (error) {
+    console.error('❌ createSchedule error:', error);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    return null
+  }
+  
+  console.log('✅ createSchedule success:', data);
+  return data as RelaySchedule
+}
+
+/**
+ * Delete a relay schedule from Supabase
+ */
+export async function deleteSchedule(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('relay_schedules')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('❌ deleteSchedule error:', error)
+    return false
+  }
+  return true
+}
+
+/**
+ * Update a relay schedule's enabled status
+ */
+export async function toggleScheduleEnabled(id: string, enabled: boolean): Promise<boolean> {
+  const { error } = await supabase
+    .from('relay_schedules')
+    .update({ enabled, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) {
+    console.error('❌ toggleScheduleEnabled error:', error)
+    return false
+  }
+  return true
+}
